@@ -1,0 +1,276 @@
+---
+title: "Constitution d'une base de prospection viticole et vinicole (Hérault)"
+subtitle: "Croisement de la base SIRENE (INSEE) et des bénéficiaires des aides PAC (ASP)"
+format:
+  html:
+    toc: true
+    toc-title: "Sommaire"
+    number-sections: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+# Présentation et méthodologie
+
+L'objectif de ce document est de constituer une base de données opérationnelle et exploitable sous Excel à destination d'un technico-commercial intervenant dans le département de **l'Hérault (34)** sur la filière viticole et vinicole.
+
+La démarche repose sur le croisement de deux sources publiques officielles :
+
+1. **La base SIRENE (INSEE, format Parquet via data.gouv.fr)** :
+   * Interrogation à distance via **DuckDB** (`httpfs`) sans téléchargement intégral des fichiers nationaux.
+   * Croisement de la table `StockEtablissement` (adresses, SIRET, activité, effectifs) et de la table `StockUniteLegale` (raisons sociales, noms d'exploitants individuels, formes juridiques).
+   * **Filtres appliqués** :
+     * Établissements **actifs** uniquement (`etatAdministratifEtablissement = 'A'`).
+     * Périmètre sectoriel ciblé sur les trois codes NAF de la filière :
+       * `01.21Z` : Culture de la vigne ;
+       * `11.02A` : Fabrication de vins effervescents ;
+       * `11.02B` : Vinification.
+     * Périmètre géographique strictement limité à l'Hérault via le **code INSEE de la commune** (`codeCommuneEtablissement LIKE '34%'`), plus fiable que le code postal (qui peut déborder sur les départements limitrophes ou être manquant).
+2. **La liste des bénéficiaires des aides PAC (ASP / Telepac, format CSV)** :
+   * Filtrage préalable sur les numéros SIREN présents dans notre extraction héraultaise.
+   * Normalisation du numéro SIREN sur 9 caractères (ajout des zéros initiaux) pour garantir un appariement exact.
+   * Distinction dans le fichier ASP entre les **lignes de synthèse** (`Fonds == ""`, contenant les montants totaux déjà agrégés par bénéficiaire : total UE/cofinancé, FEAGA, FEADER) et les **lignes de détail** (`Type.d.intervention.UE != ""`, permettant de lister les dispositifs précis perçus : aides de base, bio, restructuration, etc.).
+3. **Appariement et limite méthodologique à connaître** :
+   * La jointure est réalisée en `LEFT JOIN` sur le **SIREN** afin de conserver l'ensemble des établissements viticoles de l'Hérault, y compris ceux ne percevant pas d'aides PAC.
+   * *Point d'attention* : les aides PAC sont attribuées à l'**entreprise (SIREN)** et non à l'**établissement (SIRET)**. Si une même entreprise possède plusieurs établissements dans l'Hérault, son montant PAC est rattaché à chacune de ses lignes. Pour calculer une enveloppe financière sans double compte, il convient de filtrer sur `EST_SIEGE_SOCIAL == "Oui"` (ou de dédoublonner par `SIREN`).
+
+---
+
+# Chargement des packages
+
+```{r}
+#| label: setup
+
+library(DBI)
+library(duckdb)
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(openxlsx)
+
+```
+
+# Extraction des établissements viticoles (SIREN)
+
+L'URL du fichier StockUniteLegale est récupérée dynamiquement via l'API de data.gouv.fr afin de garantir l'utilisation de la dernière version publiée par l'INSEE.
+
+```{r}
+#| label: extraction-sirene
+
+# 1. Récupération automatique de l'URL stable de StockUniteLegale (Parquet)
+res <- fromJSON("https://www.data.gouv.fr/api/1/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/")$resources
+url_ul <- res$url[tolower(res$format) == "parquet" & grepl("StockUniteLegale", res$title)][1]
+
+# 2. Connexion DuckDB
+con <- dbConnect(duckdb())
+dbExecute(con, "INSTALL httpfs; LOAD httpfs;")
+
+# 3. Extraction enrichie pour l'Hérault (34)
+etab_viti_34 <- dbGetQuery(con, sprintf("
+  SELECT
+    -- Identifiants
+    e.siren,
+    e.siret,
+    e.etablissementSiege AS est_siege,
+
+    -- Noms (du plus parlant pour le commercial au plus administratif)
+    COALESCE(
+      e.enseigne1Etablissement,
+      e.denominationUsuelleEtablissement,
+      u.denominationUniteLegale,
+      TRIM(COALESCE(u.prenom1UniteLegale, '') || ' ' || COALESCE(u.nomUniteLegale, ''))
+    ) AS nom_principal,
+    e.enseigne1Etablissement AS enseigne,
+    u.denominationUniteLegale AS raison_sociale,
+    u.sigleUniteLegale AS sigle,
+    TRIM(COALESCE(u.prenom1UniteLegale, '') || ' ' || COALESCE(u.nomUniteLegale, '')) AS exploitant_individuel,
+
+    -- Profil de l'entreprise
+    e.activitePrincipaleEtablissement AS naf,
+    u.categorieJuridiqueUniteLegale AS forme_juridique,
+    u.categorieEntreprise AS categorie_entreprise,
+    e.trancheEffectifsEtablissement AS tranche_effectifs,
+    e.dateCreationEtablissement AS date_creation,
+
+    -- Adresse complète (avec lieu-dit / domaine)
+    e.complementAdresseEtablissement AS complement_adresse,
+    TRIM(
+      COALESCE(e.numeroVoieEtablissement, '') || ' ' ||
+      COALESCE(e.typeVoieEtablissement, '') || ' ' ||
+      COALESCE(e.libelleVoieEtablissement, '')
+    ) AS voie,
+    e.codePostalEtablissement AS code_postal,
+    e.libelleCommuneEtablissement AS commune,
+    e.codeCommuneEtablissement AS code_insee
+
+  FROM read_parquet('https://www.data.gouv.fr/fr/datasets/r/a29c1297-1f92-4e2a-8f6b-8c902ce96c5f') e
+  LEFT JOIN read_parquet('%s') u
+    ON e.siren = u.siren
+  WHERE e.etatAdministratifEtablissement = 'A'
+    AND e.activitePrincipaleEtablissement IN ('01.21Z', '11.02A', '11.02B')
+    AND e.codeCommuneEtablissement LIKE '34%%'
+", url_ul))
+
+# Sauvegarde locale pour ne plus relancer cette requête
+saveRDS(etab_viti_34, "etab_viti_34.rds")
+```
+
+# Appariement avec les bénéfices des aides PAC
+
+On importe le fichier CSV national des bénéficiaires PAC, on le restreint immédiatement aux SIREN de l'Hérault, puis on agrège séparément les montants (lignes de synthèse) et la liste des aides perçues (lignes de détail).
+
+```{r}
+#| label: traitement-pac
+
+# 1. Import du fichier ASP (Telepac)
+pac_brut <- read.csv2("C:/Users/faust/Desktop/domaines_viticoles_herault/Liste des bénéficiaires PAC 2025 - 20260601.csv")
+
+# 2. Normalisation du SIREN sur 9 caractères et filtrage sur notre périmètre Hérault
+pac_34 <- pac_brut |>
+  mutate(
+    siren = str_pad(as.character(Numéro.de.SIREN), 9, pad = "0")
+  ) |>
+  filter(siren %in% etab_viti_34$siren)
+
+# 3. Récupération des montants totaux (lignes de synthèse où Fonds == "")
+pac_totaux <- pac_34 |>
+  filter(Fonds == "") |>
+  mutate(
+    total_aides_pac = as.numeric(Montant.total.financé.par.l.UE.et.cofinancé.pour.le.bénéfic),
+    total_feaga     = as.numeric(Montant.FEAGA.total.pour.le.bénéficiaire),
+    total_feader    = as.numeric(Montant.FEADER.total.pour.le.bénéficiaire)
+  ) |>
+  group_by(siren) |>
+  summarise(
+    total_aides_pac = sum(total_aides_pac, na.rm = TRUE),
+    total_feaga     = sum(total_feaga, na.rm = TRUE),
+    total_feader    = sum(total_feader, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 4. Récupération du détail des interventions (utile pour qualifier les prospects)
+pac_details <- pac_34 |>
+  filter(Type.d.intervention.UE != "") |>
+  group_by(siren) |>
+  summarise(
+    nb_aides_pac = n(),
+    liste_aides  = paste(unique(Type.d.intervention.UE), collapse = " | "),
+    .groups = "drop"
+  )
+
+# 5. Jointure finale avec la base SIRENE
+base_viti_34_pac <- etab_viti_34 |>
+  left_join(pac_totaux, by = "siren") |>
+  left_join(pac_details, by = "siren") |>
+  mutate(
+    beneficiaire_pac = !is.na(total_aides_pac) & total_aides_pac > 0,
+    total_aides_pac  = replace_na(total_aides_pac, 0),
+    total_feaga      = replace_na(total_feaga, 0),
+    total_feader     = replace_na(total_feader, 0),
+    nb_aides_pac     = replace_na(nb_aides_pac, 0)
+  )
+
+```
+
+# Mise en forme finale et export Excel
+
+Les colonnes sont renommées de manière explicite et en MAJUSCULES, les codes NAF sont traduits en clair, et les booléens sont convertis en Oui / Non pour faciliter le filtrage sous Excel.
+
+```{r}
+#| label: mise-en-forme-export
+
+base_finale_excel <- base_viti_34_pac |>
+  mutate(
+    ACTIVITE_PRINCIPALE = case_when(
+      naf == "01.21Z" ~ "Culture de la vigne",
+      naf == "11.02A" ~ "Fabrication de vins effervescents",
+      naf == "11.02B" ~ "Vinification",
+      TRUE ~ naf
+    ),
+    EST_SIEGE_SOCIAL = if_else(est_siege, "Oui", "Non", missing = "Non renseigné"),
+    BENEFICIAIRE_PAC = if_else(beneficiaire_pac, "Oui", "Non")
+  ) |>
+  select(
+    # Identification
+    SIREN                  = siren,
+    SIRET                  = siret,
+    EST_SIEGE_SOCIAL,
+    NOM_ETABLISSEMENT      = nom_principal,
+    ENSEIGNE               = enseigne,
+    RAISON_SOCIALE         = raison_sociale,
+    SIGLE                  = sigle,
+    EXPLOITANT_INDIVIDUEL  = exploitant_individuel,
+
+    # Activité et structure
+    CODE_NAF               = naf,
+    ACTIVITE_PRINCIPALE,
+    CODE_FORME_JURIDIQUE   = forme_juridique,
+    CATEGORIE_ENTREPRISE   = categorie_entreprise,
+    TRANCHE_EFFECTIFS      = tranche_effectifs,
+    DATE_CREATION          = date_creation,
+
+    # Localisation
+    COMPLEMENT_ADRESSE     = complement_adresse,
+    ADRESSE_VOIE           = voie,
+    CODE_POSTAL            = code_postal,
+    COMMUNE                = commune,
+    CODE_INSEE_COMMUNE     = code_insee,
+
+    # Aides PAC
+    BENEFICIAIRE_PAC,
+    MONTANT_TOTAL_PAC_EUR  = total_aides_pac,
+    MONTANT_FEAGA_EUR      = total_feaga,
+    MONTANT_FEADER_EUR     = total_feader,
+    NB_AIDES_PAC           = nb_aides_pac,
+    DETAIL_AIDES_PAC       = liste_aides
+  ) |>
+  arrange(desc(MONTANT_TOTAL_PAC_EUR), COMMUNE, NOM_ETABLISSEMENT)
+
+# Sauvegarde au format R (.rds) pour le futur dashboard Shiny
+saveRDS(base_finale_excel, "base_viti_34_pac.rds")
+
+# Export au format Excel (.xlsx) avec tableau structuré, filtres et largeurs automatiques
+wb <- createWorkbook()
+addWorksheet(wb, "Domaines_Viticoles_34")
+
+writeDataTable(
+  wb,
+  sheet = "Domaines_Viticoles_34",
+  x = base_finale_excel,
+  tableStyle = "TableStyleMedium2",
+  withFilter = TRUE
+)
+
+# Fige la première ligne (en-têtes) et ajuste la largeur des colonnes
+freezePane(wb, sheet = "Domaines_Viticoles_34", firstRow = TRUE)
+setColWidths(wb, sheet = "Domaines_Viticoles_34", cols = 1:ncol(base_finale_excel), widths = "auto")
+
+saveWorkbook(wb, "base_viticole_herault_pac.xlsx", overwrite = TRUE)
+
+```
+
+# Contrôle qualité de la base finale
+
+```{r}
+#| label: controle-qualite
+
+bilan <- base_finale_excel |>
+  summarise(
+    NB_ETABLISSEMENTS       = n(),
+    NB_ENTREPRISES_SIREN    = n_distinct(SIREN),
+    NB_ETAB_AVEC_PAC        = sum(BENEFICIAIRE_PAC == "Oui"),
+    TAUX_APPARIEMENT_PCT    = round(mean(BENEFICIAIRE_PAC == "Oui") * 100, 1)
+  )
+
+# Enveloppe PAC calculée sans double compte (1 montant par SIREN unique)
+enveloppe_pac <- base_finale_excel |>
+  distinct(SIREN, MONTANT_TOTAL_PAC_EUR) |>
+  summarise(ENVELOPPE_PAC_UNIQUE_EUR = sum(MONTANT_TOTAL_PAC_EUR, na.rm = TRUE))
+
+bind_cols(bilan, enveloppe_pac)
+
+```
+
