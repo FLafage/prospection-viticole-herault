@@ -1,0 +1,317 @@
+---
+title: "Prospection Viticole — Hérault (34)"
+format:
+  dashboard:
+    theme: cosmo
+    embed-resources: true
+    scrolling: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body, .bslib-value-box, .card {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  background-color: #F5F6F8;
+}
+
+/* Barre de navigation bordeaux + titre bien blanc */
+.navbar {
+  background-color: #5C1A2A !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+.navbar-brand, .navbar-title, .navbar-nav .nav-link {
+  color: #FFFFFF !important;
+  font-weight: 500;
+}
+.navbar-nav .nav-link {
+  opacity: 0.82;
+}
+.navbar-nav .nav-link.active, .navbar-nav .nav-link:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 6px;
+}
+
+/* Cartes blanches épurées */
+.card {
+  border: 1px solid #E5E7EB !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05) !important;
+  background-color: #FFFFFF !important;
+}
+.card-header {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  font-weight: 600;
+  color: #1E293B;
+  font-size: 0.9rem;
+  padding: 0.65rem 1rem !important;
+}
+
+/* KPI propres (fond blanc, texte foncé, bordure gauche colorée) */
+.bslib-value-box {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-left: 5px solid #5C1A2A !important;
+}
+.bslib-value-box .value-box-title {
+  color: #64748B !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600 !important;
+}
+.bslib-value-box .value-box-value {
+  color: #0F172A !important;
+  font-size: 1.7rem !important;
+  font-weight: 700 !important;
+}
+.bslib-value-box .value-box-showcase {
+  color: #5C1A2A !important;
+}
+
+/* Couleur spécifique pour le 2e et 3e KPI */
+.dashboard-row > .bslib-grid-item:nth-child(2) .bslib-value-box {
+  border-left-color: #2E7D32 !important;
+}
+.dashboard-row > .bslib-grid-item:nth-child(2) .value-box-showcase {
+  color: #2E7D32 !important;
+}
+.dashboard-row > .bslib-grid-item:nth-child(3) .bslib-value-box {
+  border-left-color: #B08938 !important;
+}
+.dashboard-row > .bslib-grid-item:nth-child(3) .value-box-showcase {
+  color: #B08938 !important;
+}
+
+/* Popups Leaflet */
+.leaflet-popup-content-wrapper {
+  border-radius: 10px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+</style>
+
+```{r}
+#| label: setup
+library(dplyr)
+library(leaflet)
+library(leaflet.extras)
+library(DT)
+library(htmltools)
+
+base_viti <- readRDS("base_viti_34_pac.rds") |>
+  filter(
+    EST_SIEGE_SOCIAL == "Oui",
+    !is.na(LATITUDE),
+    !is.na(LONGITUDE)
+  ) |>
+  mutate(
+    LIEN_PAPPERS = paste0("[https://www.pappers.fr/entreprise/](https://www.pappers.fr/entreprise/)", SIREN),
+    ADRESSE_COMPLETE = trimws(paste(
+      ifelse(is.na(COMPLEMENT_ADRESSE), "", COMPLEMENT_ADRESSE),
+      ifelse(is.na(ADRESSE_VOIE), "", ADRESSE_VOIE),
+      ifelse(is.na(CODE_POSTAL), "", CODE_POSTAL),
+      ifelse(is.na(COMMUNE), "", COMMUNE)
+    )),
+    MONTANT_PAC_ARRONDI = round(MONTANT_TOTAL_PAC_EUR),
+    BADGE_PAC = ifelse(
+      BENEFICIAIRE_PAC == "Oui",
+      paste0("<span style='background:#E8F5E9; color:#2E7D32; padding:2px 8px; border-radius:12px; font-weight:600; font-size:12px;'>PAC : ",
+             format(MONTANT_PAC_ARRONDI, big.mark = " "), " €</span>"),
+      "<span style='background:#F1F5F9; color:#64748B; padding:2px 8px; border-radius:12px; font-weight:500; font-size:12px;'>Non bénéficiaire PAC</span>"
+    ),
+    POPUP_HTML = paste0(
+      "<div style='min-width:240px; font-family:Inter,sans-serif; line-height:1.45;'>",
+      "<div style='font-size:14px; font-weight:700; color:#5C1A2A; margin-bottom:2px;'>", htmlEscape(NOM_ETABLISSEMENT), "</div>",
+      "<div style='font-size:12px; color:#64748B; margin-bottom:8px;'>", htmlEscape(ACTIVITE_PRINCIPALE), "</div>",
+      "<div style='margin-bottom:8px;'>", BADGE_PAC, "</div>",
+      "<div style='font-size:12px; color:#334155; margin-bottom:4px;'><b>Adresse :</b> ", htmlEscape(ADRESSE_COMPLETE), "</div>",
+      "<div style='font-size:12px; color:#334155; margin-bottom:10px;'><b>SIREN :</b> ", SIREN, "</div>",
+      "<div style='display:flex; gap:6px;'>",
+      "<a href='", LIEN_GOOGLE_MAPS, "' target='_blank' ",
+      "style='flex:1; text-align:center; background:#5C1A2A; color:white; padding:6px 10px; text-decoration:none; border-radius:6px; font-size:12px; font-weight:500;'>Itinéraire GPS</a>",
+      "<a href='", LIEN_PAPPERS, "' target='_blank' ",
+      "style='flex:1; text-align:center; background:#1E293B; color:white; padding:6px 10px; text-decoration:none; border-radius:6px; font-size:12px; font-weight:500;'>Fiche Pappers</a>",
+      "</div></div>"
+    )
+  )
+
+# 3 segments pour filtrer par potentiel directement sur la carte
+base_pac_gros   <- base_viti |> filter(BENEFICIAIRE_PAC == "Oui", MONTANT_PAC_ARRONDI >= 10000)
+base_pac_petits <- base_viti |> filter(BENEFICIAIRE_PAC == "Oui", MONTANT_PAC_ARRONDI < 10000)
+base_pac_non    <- base_viti |> filter(BENEFICIAIRE_PAC == "Non")
+
+nb_total    <- nrow(base_viti)
+nb_pac      <- sum(base_viti$BENEFICIAIRE_PAC == "Oui", na.rm = TRUE)
+pct_pac     <- round(nb_pac / nb_total * 100, 1)
+total_euros <- sum(base_viti$MONTANT_PAC_ARRONDI, na.rm = TRUE)
+```
+
+# Carte de prospection
+
+## Row {height=16%}
+
+```{r}
+#| content: valuebox
+#| title: "Domaines géolocalisés (34)"
+list(
+  icon = "geo-alt-fill",
+  color = "#FFFFFF",
+  value = format(nb_total, big.mark = " ")
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Bénéficiaires PAC"
+list(
+  icon = "patch-check-fill",
+  color = "#FFFFFF",
+  value = paste0(format(nb_pac, big.mark = " "), " (", pct_pac, "%)")
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Enveloppe PAC (Hérault)"
+list(
+  icon = "currency-euro",
+  color = "#FFFFFF",
+  value = paste0(format(round(total_euros / 1e6, 1), decimal.mark = ","), " M€")
+)
+```
+
+## Row {height=84%}
+
+```{r}
+#| title: "Cartographie — Loupe : rechercher une commune (ex. Béziers) | Cible : GPS | Calques : filtres PAC"
+leaflet() |>
+  addProviderTiles(providers$Esri.WorldGrayCanvas, group = "Plan épuré") |>
+  addTiles(group = "Plan détaillé (OSM)") |>
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") |>
+  setView(lng = 3.55, lat = 43.60, zoom = 10) |>
+  addCircleMarkers(
+    data = base_pac_gros,
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    radius = 7,
+    color = "#1B5E20",
+    fillColor = "#2E7D32",
+    fillOpacity = 0.9,
+    stroke = TRUE,
+    weight = 1.5,
+    popup = ~POPUP_HTML,
+    label = ~paste0(NOM_ETABLISSEMENT, " — ", COMMUNE, " (", format(MONTANT_PAC_ARRONDI, big.mark = " "), " €)"),
+    group = "PAC ≥ 10 000 €",
+    clusterOptions = markerClusterOptions(
+      showCoverageOnHover = FALSE,
+      spiderfyOnMaxZoom = TRUE
+    )
+  ) |>
+  addCircleMarkers(
+    data = base_pac_petits,
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    radius = 6,
+    color = "#B08938",
+    fillColor = "#D4A843",
+    fillOpacity = 0.85,
+    stroke = TRUE,
+    weight = 1.5,
+    popup = ~POPUP_HTML,
+    label = ~paste0(NOM_ETABLISSEMENT, " — ", COMMUNE, " (", format(MONTANT_PAC_ARRONDI, big.mark = " "), " €)"),
+    group = "PAC < 10 000 €",
+    clusterOptions = markerClusterOptions(
+      showCoverageOnHover = FALSE,
+      spiderfyOnMaxZoom = TRUE
+    )
+  ) |>
+  addCircleMarkers(
+    data = base_pac_non,
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    radius = 5,
+    color = "#5C1A2A",
+    fillColor = "#5C1A2A",
+    fillOpacity = 0.8,
+    stroke = TRUE,
+    weight = 1,
+    popup = ~POPUP_HTML,
+    label = ~paste0(NOM_ETABLISSEMENT, " — ", COMMUNE),
+    group = "Non-bénéficiaires PAC",
+    clusterOptions = markerClusterOptions(
+      showCoverageOnHover = FALSE,
+      spiderfyOnMaxZoom = TRUE
+    )
+  ) |>
+  addSearchOSM(
+    options = searchOptions(
+      position = "topleft",
+      autoCollapse = TRUE,
+      minLength = 2,
+      zoom = 13,
+      textPlaceholder = "Rechercher une commune (ex. Béziers)..."
+    )
+  ) |>
+  addControlGPS(
+    options = gpsOptions(
+      position = "topleft",
+      activate = FALSE,
+      autoCenter = TRUE,
+      maxZoom = 14,
+      setView = TRUE
+    )
+  ) |>
+  addLayersControl(
+    baseGroups = c("Plan épuré", "Plan détaillé (OSM)", "Satellite"),
+    overlayGroups = c("PAC ≥ 10 000 €", "PAC < 10 000 €", "Non-bénéficiaires PAC"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) |>
+  addLegend(
+    position = "bottomright",
+    colors = c("#2E7D32", "#D4A843", "#5C1A2A"),
+    labels = c("PAC ≥ 10 000 €", "PAC < 10 000 €", "Non-bénéficiaire PAC"),
+    title = "Potentiel PAC",
+    opacity = 0.9
+  )
+```
+
+# Annuaire & Export
+
+```{r}
+#| title: "Base prospects filtrable par commune / activité (export CSV / Excel)"
+df_tab <- base_viti |>
+  transmute(
+    Établissement   = NOM_ETABLISSEMENT,
+    Commune         = COMMUNE,
+    Activité        = ACTIVITE_PRINCIPALE,
+    `Bénéf. PAC`    = BENEFICIAIRE_PAC,
+    `Aides PAC (€)` = MONTANT_PAC_ARRONDI,
+    Adresse         = ADRESSE_COMPLETE,
+    Liens = paste0(
+      "<a href='", LIEN_GOOGLE_MAPS, "' target='_blank' style='color:#5C1A2A; font-weight:600; text-decoration:none;'>Maps</a> · ",
+      "<a href='", LIEN_PAPPERS, "' target='_blank' style='color:#1E293B; font-weight:600; text-decoration:none;'>Pappers</a>"
+    )
+  )
+
+datatable(
+  df_tab,
+  escape = FALSE,
+  rownames = FALSE,
+  filter = "top",
+  extensions = "Buttons",
+  class = "stripe hover row-border",
+  options = list(
+    pageLength = 25,
+    dom = "Bfrtip",
+    buttons = c("csv", "excel"),
+    language = list(url = "//cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json")
+  )
+) |>
+  formatCurrency("Aides PAC (€)", currency = " €", before = FALSE, digits = 0, mark = " ")
+```
