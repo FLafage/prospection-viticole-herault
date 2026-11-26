@@ -7,3 +7,5 @@
 # Exclure le gros fichier CSV PAC (trop lourd pour GitHub)
 *.csv
 *.rds
+/.quarto/
+**/*.quarto_ipynb

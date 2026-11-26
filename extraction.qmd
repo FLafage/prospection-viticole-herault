@@ -1,6 +1,6 @@
 ---
 title: "Constitution d'une base de prospection viticole et vinicole (Hérault)"
-subtitle: "Croisement de la base SIRENE (INSEE) et des bénéficiaires des aides PAC (ASP)"
+subtitle: "Croisement de la base SIRENE (INSEE), géolocalisation et bénéficiaires des aides PAC (ASP)"
 format:
   html:
     toc: true
@@ -14,27 +14,30 @@ execute:
 
 # Présentation et méthodologie
 
-L'objectif de ce document est de constituer une base de données opérationnelle et exploitable sous Excel à destination d'un technico-commercial intervenant dans le département de **l'Hérault (34)** sur la filière viticole et vinicole.
+L'objectif de ce document est de constituer une base de données opérationnelle, géolocalisée et exploitable sous Excel (puis dans un futur tableau de bord cartographique `flexdashboard`) à destination d'un technico-commercial intervenant dans le département de **l'Hérault (34)** sur la filière viticole et vinicole.
 
-La démarche repose sur le croisement de deux sources publiques officielles :
+La démarche repose sur le croisement de trois sources publiques officielles :
 
 1. **La base SIRENE (INSEE, format Parquet via data.gouv.fr)** :
-   * Interrogation à distance via **DuckDB** (`httpfs`) sans téléchargement intégral des fichiers nationaux.
-   * Croisement de la table `StockEtablissement` (adresses, SIRET, activité, effectifs) et de la table `StockUniteLegale` (raisons sociales, noms d'exploitants individuels, formes juridiques).
-   * **Filtres appliqués** :
-     * Établissements **actifs** uniquement (`etatAdministratifEtablissement = 'A'`).
-     * Périmètre sectoriel ciblé sur les trois codes NAF de la filière :
-       * `01.21Z` : Culture de la vigne ;
-       * `11.02A` : Fabrication de vins effervescents ;
-       * `11.02B` : Vinification.
-     * Périmètre géographique strictement limité à l'Hérault via le **code INSEE de la commune** (`codeCommuneEtablissement LIKE '34%'`), plus fiable que le code postal (qui peut déborder sur les départements limitrophes ou être manquant).
-2. **La liste des bénéficiaires des aides PAC (ASP / Telepac, format CSV)** :
-   * Filtrage préalable sur les numéros SIREN présents dans notre extraction héraultaise.
-   * Normalisation du numéro SIREN sur 9 caractères (ajout des zéros initiaux) pour garantir un appariement exact.
-   * Distinction dans le fichier ASP entre les **lignes de synthèse** (`Fonds == ""`, contenant les montants totaux déjà agrégés par bénéficiaire : total UE/cofinancé, FEAGA, FEADER) et les **lignes de détail** (`Type.d.intervention.UE != ""`, permettant de lister les dispositifs précis perçus : aides de base, bio, restructuration, etc.).
-3. **Appariement et limite méthodologique à connaître** :
-   * La jointure est réalisée en `LEFT JOIN` sur le **SIREN** afin de conserver l'ensemble des établissements viticoles de l'Hérault, y compris ceux ne percevant pas d'aides PAC.
-   * *Point d'attention* : les aides PAC sont attribuées à l'**entreprise (SIREN)** et non à l'**établissement (SIRET)**. Si une même entreprise possède plusieurs établissements dans l'Hérault, son montant PAC est rattaché à chacune de ses lignes. Pour calculer une enveloppe financière sans double compte, il convient de filtrer sur `EST_SIEGE_SOCIAL == "Oui"` (ou de dédoublonner par `SIREN`).
+   - Interrogation à distance via **DuckDB** (`httpfs`) sans téléchargement intégral des fichiers nationaux.
+   - Croisement de la table `StockEtablissement` (adresses, SIRET, activité, effectifs) et de la table `StockUniteLegale` (raisons sociales, noms d'exploitants individuels, formes juridiques).
+   - **Filtres appliqués** :
+     - Établissements **actifs** uniquement (`etatAdministratifEtablissement = 'A'`).
+     - Périmètre sectoriel ciblé sur les trois codes NAF de la filière :
+       - `01.21Z` : Culture de la vigne ;
+       - `11.02A` : Fabrication de vins effervescents ;
+       - `11.02B` : Vinification.
+     - Périmètre géographique strictement limité à l'Hérault via le **code INSEE de la commune** (`codeCommuneEtablissement LIKE '34%'`), plus fiable que le code postal (qui peut déborder sur les départements limitrophes ou être manquant).
+2. **La géolocalisation des établissements SIRENE (INSEE, format Parquet via data.gouv.fr)** :
+   - Jointure distante dans DuckDB sur le **SIRET** afin de ne rapatrier que les coordonnées des établissements héraultais, avec leur indicateur de qualité de géocodage (`qualite_xy`).
+   - Conversion des coordonnées officielles projetées en **Lambert-93 (`EPSG:2154`)** vers le système GPS standard **WGS84 (`EPSG:4326`, latitude et longitude)** grâce au package `sf`, afin de rendre la base directement exploitable sur une carte interactive (Leaflet / `flexdashboard`) et dans les outils de navigation terrain (Google Maps, Waze).
+3. **La liste des bénéficiaires des aides PAC (ASP / Telepac, format CSV)** :
+   - Filtrage préalable sur les numéros SIREN présents dans notre extraction héraultaise.
+   - Normalisation du numéro SIREN sur 9 caractères (ajout des zéros initiaux) pour garantir un appariement exact.
+   - Distinction dans le fichier ASP entre les **lignes de synthèse** (`Fonds == ""`, contenant les montants totaux déjà agrégés par bénéficiaire : total UE/cofinancé, FEAGA, FEADER) et les **lignes de détail** (`Type.d.intervention.UE != ""`, permettant de lister les dispositifs précis perçus : aides de base, bio, restructuration, etc.).
+4. **Appariement et limite méthodologique à connaître** :
+   - La jointure PAC est réalisée en `LEFT JOIN` sur le **SIREN** afin de conserver l'ensemble des établissements viticoles de l'Hérault, y compris ceux ne percevant pas d'aides PAC.
+   - *Point d'attention* : les coordonnées GPS sont rattachées à l'**établissement physique (SIRET)**, tandis que les aides PAC sont attribuées à l'**entreprise (SIREN)**. Si une même entreprise possède plusieurs établissements dans l'Hérault, son montant PAC est rattaché à chacune de ses lignes. Pour calculer une enveloppe financière sans double compte (ou n'afficher qu'un seul point par entreprise sur une carte), il convient de filtrer sur `EST_SIEGE_SOCIAL == "Oui"` (ou de dédoublonner par `SIREN`).
 
 ---
 
@@ -50,10 +53,11 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(openxlsx)
+library(sf)
 
 ```
 
-# Extraction des établissements viticoles (SIREN)
+# Extraction des établissements viticoles (SIRENE)
 
 L'URL du fichier StockUniteLegale est récupérée dynamiquement via l'API de data.gouv.fr afin de garantir l'utilisation de la dernière version publiée par l'INSEE.
 
@@ -116,9 +120,56 @@ etab_viti_34 <- dbGetQuery(con, sprintf("
 
 # Sauvegarde locale pour ne plus relancer cette requête
 saveRDS(etab_viti_34, "etab_viti_34.rds")
+
+```
+# Géolocalisation des établissements (SIRENE)
+
+Pour localiser les domaines sur une carte sans géocoder chaque adresse une par une via une API, on croise directement etab_viti_34 dans DuckDB avec le fichier Parquet officiel de géolocalisation des établissements SIRENE publié par l'INSEE.
+
+Les coordonnées récupérées (x, y) étant exprimées en projection Lambert-93 (EPSG:2154), elles sont converties avec sf en coordonnées GPS WGS84 (EPSG:4326) (latitude et longitude), puis rattachées à la base par le numéro SIRET avec leur indice de précision (qualite_geocodage).
+
+```{r}
+#| label: geolocalisation-sirene
+
+# 1. Récupération automatique de l'URL du fichier Parquet de géolocalisation SIRENE
+res_geo <- fromJSON("https://www.data.gouv.fr/api/1/datasets/geolocalisation-des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/")$resources
+url_geo <- res_geo$url[tolower(res_geo$format) == "parquet"][1]
+
+# 2. Enregistrement de la table locale dans DuckDB et jointure distante sur le SIRET
+duckdb_register(con, "etab_viti_34", etab_viti_34)
+
+coords_lambert <- dbGetQuery(con, sprintf("
+  SELECT
+    e.siret,
+    g.x,
+    g.y,
+    g.qualite_xy AS qualite_geocodage
+  FROM etab_viti_34 e
+  LEFT JOIN read_parquet('%s') g
+    ON e.siret = g.siret
+", url_geo))
+
+# Fermeture propre de DuckDB
+dbDisconnect(con, shutdown = TRUE)
+
+# 3. Conversion Lambert-93 (EPSG:2154) -> GPS WGS84 (EPSG:4326)
+coords_gps <- coords_lambert |>
+  filter(!is.na(x), !is.na(y)) |>
+  st_as_sf(coords = c("x", "y"), crs = 2154) |>
+  st_transform(crs = 4326) |>
+  mutate(
+    longitude = st_coordinates(geometry)[, 1],
+    latitude  = st_coordinates(geometry)[, 2]
+  ) |>
+  st_drop_geometry()
+
+# 4. Rattachement des coordonnées à etab_viti_34
+etab_viti_34 <- etab_viti_34 |>
+  left_join(coords_gps, by = "siret")
+
 ```
 
-# Appariement avec les bénéfices des aides PAC
+# Appariement avec les bénéficiaires des aides PAC
 
 On importe le fichier CSV national des bénéficiaires PAC, on le restreint immédiatement aux SIREN de l'Hérault, puis on agrège séparément les montants (lignes de synthèse) et la liste des aides perçues (lignes de détail).
 
@@ -161,7 +212,7 @@ pac_details <- pac_34 |>
     .groups = "drop"
   )
 
-# 5. Jointure finale avec la base SIRENE
+# 5. Jointure finale avec la base SIRENE géolocalisée
 base_viti_34_pac <- etab_viti_34 |>
   left_join(pac_totaux, by = "siren") |>
   left_join(pac_details, by = "siren") |>
@@ -177,7 +228,9 @@ base_viti_34_pac <- etab_viti_34 |>
 
 # Mise en forme finale et export Excel
 
-Les colonnes sont renommées de manière explicite et en MAJUSCULES, les codes NAF sont traduits en clair, et les booléens sont convertis en Oui / Non pour faciliter le filtrage sous Excel.
+Les colonnes sont renommées de manière explicite et en MAJUSCULES, les codes NAF sont traduits en clair, les booléens sont convertis en Oui / Non pour faciliter le filtrage sous Excel, et un lien direct Google Maps (LIEN_GOOGLE_MAPS) est généré à partir des coordonnées GPS de chaque établissement.
+
+La base finale géolocalisée est sauvegardée à la fois au format .rds (pour alimenter le futur tableau de bord flexdashboard) et au format .xlsx (pour une utilisation immédiate sur Excel).
 
 ```{r}
 #| label: mise-en-forme-export
@@ -191,7 +244,12 @@ base_finale_excel <- base_viti_34_pac |>
       TRUE ~ naf
     ),
     EST_SIEGE_SOCIAL = if_else(est_siege, "Oui", "Non", missing = "Non renseigné"),
-    BENEFICIAIRE_PAC = if_else(beneficiaire_pac, "Oui", "Non")
+    BENEFICIAIRE_PAC = if_else(beneficiaire_pac, "Oui", "Non"),
+    LIEN_GOOGLE_MAPS = if_else(
+      !is.na(latitude) & !is.na(longitude),
+      paste0("[https://www.google.com/maps/search/?api=1&query=](https://www.google.com/maps/search/?api=1&query=)", latitude, ",", longitude),
+      NA_character_
+    )
   ) |>
   select(
     # Identification
@@ -212,12 +270,16 @@ base_finale_excel <- base_viti_34_pac |>
     TRANCHE_EFFECTIFS      = tranche_effectifs,
     DATE_CREATION          = date_creation,
 
-    # Localisation
+    # Localisation et GPS
     COMPLEMENT_ADRESSE     = complement_adresse,
     ADRESSE_VOIE           = voie,
     CODE_POSTAL            = code_postal,
     COMMUNE                = commune,
     CODE_INSEE_COMMUNE     = code_insee,
+    LATITUDE               = latitude,
+    LONGITUDE              = longitude,
+    QUALITE_GEOCODAGE      = qualite_geocodage,
+    LIEN_GOOGLE_MAPS,
 
     # Aides PAC
     BENEFICIAIRE_PAC,
@@ -229,7 +291,7 @@ base_finale_excel <- base_viti_34_pac |>
   ) |>
   arrange(desc(MONTANT_TOTAL_PAC_EUR), COMMUNE, NOM_ETABLISSEMENT)
 
-# Sauvegarde au format R (.rds) pour le futur dashboard Shiny
+# Sauvegarde au format R (.rds) pour le futur dashboard flexdashboard
 saveRDS(base_finale_excel, "base_viti_34_pac.rds")
 
 # Export au format Excel (.xlsx) avec tableau structuré, filtres et largeurs automatiques
@@ -261,6 +323,8 @@ bilan <- base_finale_excel |>
   summarise(
     NB_ETABLISSEMENTS       = n(),
     NB_ENTREPRISES_SIREN    = n_distinct(SIREN),
+    NB_ETAB_GEOLOCALISES    = sum(!is.na(LATITUDE)),
+    TAUX_GEOCODAGE_PCT      = round(mean(!is.na(LATITUDE)) * 100, 1),
     NB_ETAB_AVEC_PAC        = sum(BENEFICIAIRE_PAC == "Oui"),
     TAUX_APPARIEMENT_PCT    = round(mean(BENEFICIAIRE_PAC == "Oui") * 100, 1)
   )

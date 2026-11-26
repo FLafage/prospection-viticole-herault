@@ -2212,10 +2212,11 @@ vertical-align: -.125em;
   <ul>
   <li><a href="#présentation-et-méthodologie" id="toc-présentation-et-méthodologie" class="nav-link active" data-scroll-target="#présentation-et-méthodologie"><span class="header-section-number">1</span> Présentation et méthodologie</a></li>
   <li><a href="#chargement-des-packages" id="toc-chargement-des-packages" class="nav-link" data-scroll-target="#chargement-des-packages"><span class="header-section-number">2</span> Chargement des packages</a></li>
-  <li><a href="#extraction-des-établissements-viticoles-siren" id="toc-extraction-des-établissements-viticoles-siren" class="nav-link" data-scroll-target="#extraction-des-établissements-viticoles-siren"><span class="header-section-number">3</span> Extraction des établissements viticoles (SIREN)</a></li>
-  <li><a href="#appariement-avec-les-bénéfices-des-aides-pac" id="toc-appariement-avec-les-bénéfices-des-aides-pac" class="nav-link" data-scroll-target="#appariement-avec-les-bénéfices-des-aides-pac"><span class="header-section-number">4</span> Appariement avec les bénéfices des aides PAC</a></li>
-  <li><a href="#mise-en-forme-finale-et-export-excel" id="toc-mise-en-forme-finale-et-export-excel" class="nav-link" data-scroll-target="#mise-en-forme-finale-et-export-excel"><span class="header-section-number">5</span> Mise en forme finale et export Excel</a></li>
-  <li><a href="#contrôle-qualité-de-la-base-finale" id="toc-contrôle-qualité-de-la-base-finale" class="nav-link" data-scroll-target="#contrôle-qualité-de-la-base-finale"><span class="header-section-number">6</span> Contrôle qualité de la base finale</a></li>
+  <li><a href="#extraction-des-établissements-viticoles-sirene" id="toc-extraction-des-établissements-viticoles-sirene" class="nav-link" data-scroll-target="#extraction-des-établissements-viticoles-sirene"><span class="header-section-number">3</span> Extraction des établissements viticoles (SIRENE)</a></li>
+  <li><a href="#géolocalisation-des-établissements-sirene" id="toc-géolocalisation-des-établissements-sirene" class="nav-link" data-scroll-target="#géolocalisation-des-établissements-sirene"><span class="header-section-number">4</span> Géolocalisation des établissements (SIRENE)</a></li>
+  <li><a href="#appariement-avec-les-bénéficiaires-des-aides-pac" id="toc-appariement-avec-les-bénéficiaires-des-aides-pac" class="nav-link" data-scroll-target="#appariement-avec-les-bénéficiaires-des-aides-pac"><span class="header-section-number">5</span> Appariement avec les bénéficiaires des aides PAC</a></li>
+  <li><a href="#mise-en-forme-finale-et-export-excel" id="toc-mise-en-forme-finale-et-export-excel" class="nav-link" data-scroll-target="#mise-en-forme-finale-et-export-excel"><span class="header-section-number">6</span> Mise en forme finale et export Excel</a></li>
+  <li><a href="#contrôle-qualité-de-la-base-finale" id="toc-contrôle-qualité-de-la-base-finale" class="nav-link" data-scroll-target="#contrôle-qualité-de-la-base-finale"><span class="header-section-number">7</span> Contrôle qualité de la base finale</a></li>
   </ul>
 </nav>
 </div>
@@ -2224,7 +2225,7 @@ vertical-align: -.125em;
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <h1 class="title">Constitution d’une base de prospection viticole et vinicole (Hérault)</h1>
-<p class="subtitle lead">Croisement de la base SIRENE (INSEE) et des bénéficiaires des aides PAC (ASP)</p>
+<p class="subtitle lead">Croisement de la base SIRENE (INSEE), géolocalisation et bénéficiaires des aides PAC (ASP)</p>
 </div>
 
 
@@ -2243,8 +2244,8 @@ vertical-align: -.125em;
 
 <section id="présentation-et-méthodologie" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Présentation et méthodologie</h1>
-<p>L’objectif de ce document est de constituer une base de données opérationnelle et exploitable sous Excel à destination d’un technico-commercial intervenant dans le département de <strong>l’Hérault (34)</strong> sur la filière viticole et vinicole.</p>
-<p>La démarche repose sur le croisement de deux sources publiques officielles :</p>
+<p>L’objectif de ce document est de constituer une base de données opérationnelle, géolocalisée et exploitable sous Excel (puis dans un futur tableau de bord cartographique <code>flexdashboard</code>) à destination d’un technico-commercial intervenant dans le département de <strong>l’Hérault (34)</strong> sur la filière viticole et vinicole.</p>
+<p>La démarche repose sur le croisement de trois sources publiques officielles :</p>
 <ol type="1">
 <li><strong>La base SIRENE (INSEE, format Parquet via data.gouv.fr)</strong> :
 <ul>
@@ -2262,6 +2263,11 @@ vertical-align: -.125em;
 <li>Périmètre géographique strictement limité à l’Hérault via le <strong>code INSEE de la commune</strong> (<code>codeCommuneEtablissement LIKE &#39;34%&#39;</code>), plus fiable que le code postal (qui peut déborder sur les départements limitrophes ou être manquant).</li>
 </ul></li>
 </ul></li>
+<li><strong>La géolocalisation des établissements SIRENE (INSEE, format Parquet via data.gouv.fr)</strong> :
+<ul>
+<li>Jointure distante dans DuckDB sur le <strong>SIRET</strong> afin de ne rapatrier que les coordonnées des établissements héraultais, avec leur indicateur de qualité de géocodage (<code>qualite_xy</code>).</li>
+<li>Conversion des coordonnées officielles projetées en <strong>Lambert-93 (<code>EPSG:2154</code>)</strong> vers le système GPS standard <strong>WGS84 (<code>EPSG:4326</code>, latitude et longitude)</strong> grâce au package <code>sf</code>, afin de rendre la base directement exploitable sur une carte interactive (Leaflet / <code>flexdashboard</code>) et dans les outils de navigation terrain (Google Maps, Waze).</li>
+</ul></li>
 <li><strong>La liste des bénéficiaires des aides PAC (ASP / Telepac, format CSV)</strong> :
 <ul>
 <li>Filtrage préalable sur les numéros SIREN présents dans notre extraction héraultaise.</li>
@@ -2270,8 +2276,8 @@ vertical-align: -.125em;
 </ul></li>
 <li><strong>Appariement et limite méthodologique à connaître</strong> :
 <ul>
-<li>La jointure est réalisée en <code>LEFT JOIN</code> sur le <strong>SIREN</strong> afin de conserver l’ensemble des établissements viticoles de l’Hérault, y compris ceux ne percevant pas d’aides PAC.</li>
-<li><em>Point d’attention</em> : les aides PAC sont attribuées à l’<strong>entreprise (SIREN)</strong> et non à l’<strong>établissement (SIRET)</strong>. Si une même entreprise possède plusieurs établissements dans l’Hérault, son montant PAC est rattaché à chacune de ses lignes. Pour calculer une enveloppe financière sans double compte, il convient de filtrer sur <code>EST_SIEGE_SOCIAL == &quot;Oui&quot;</code> (ou de dédoublonner par <code>SIREN</code>).</li>
+<li>La jointure PAC est réalisée en <code>LEFT JOIN</code> sur le <strong>SIREN</strong> afin de conserver l’ensemble des établissements viticoles de l’Hérault, y compris ceux ne percevant pas d’aides PAC.</li>
+<li><em>Point d’attention</em> : les coordonnées GPS sont rattachées à l’<strong>établissement physique (SIRET)</strong>, tandis que les aides PAC sont attribuées à l’<strong>entreprise (SIREN)</strong>. Si une même entreprise possède plusieurs établissements dans l’Hérault, son montant PAC est rattaché à chacune de ses lignes. Pour calculer une enveloppe financière sans double compte (ou n’afficher qu’un seul point par entreprise sur une carte), il convient de filtrer sur <code>EST_SIEGE_SOCIAL == &quot;Oui&quot;</code> (ou de dédoublonner par <code>SIREN</code>).</li>
 </ul></li>
 </ol>
 <hr>
@@ -2285,11 +2291,12 @@ vertical-align: -.125em;
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(openxlsx)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(openxlsx)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="extraction-des-établissements-viticoles-siren" class="level1" data-number="3">
-<h1 data-number="3"><span class="header-section-number">3</span> Extraction des établissements viticoles (SIREN)</h1>
+<section id="extraction-des-établissements-viticoles-sirene" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Extraction des établissements viticoles (SIRENE)</h1>
 <p>L’URL du fichier StockUniteLegale est récupérée dynamiquement via l’API de data.gouv.fr afin de garantir l’utilisation de la dernière version publiée par l’INSEE.</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Récupération automatique de l&#39;URL stable de StockUniteLegale (Parquet)</span></span>
@@ -2352,152 +2359,208 @@ vertical-align: -.125em;
 <span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(etab_viti_34, <span class="st">&quot;etab_viti_34.rds&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="appariement-avec-les-bénéfices-des-aides-pac" class="level1" data-number="4">
-<h1 data-number="4"><span class="header-section-number">4</span> Appariement avec les bénéfices des aides PAC</h1>
+<section id="géolocalisation-des-établissements-sirene" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Géolocalisation des établissements (SIRENE)</h1>
+<p>Pour localiser les domaines sur une carte sans géocoder chaque adresse une par une via une API, on croise directement etab_viti_34 dans DuckDB avec le fichier Parquet officiel de géolocalisation des établissements SIRENE publié par l’INSEE.</p>
+<p>Les coordonnées récupérées (x, y) étant exprimées en projection Lambert-93 (EPSG:2154), elles sont converties avec sf en coordonnées GPS WGS84 (EPSG:4326) (latitude et longitude), puis rattachées à la base par le numéro SIRET avec leur indice de précision (qualite_geocodage).</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Récupération automatique de l&#39;URL du fichier Parquet de géolocalisation SIRENE</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>res_geo <span class="ot">&lt;-</span> <span class="fu">fromJSON</span>(<span class="st">&quot;https://www.data.gouv.fr/api/1/datasets/geolocalisation-des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/&quot;</span>)<span class="sc">$</span>resources</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>url_geo <span class="ot">&lt;-</span> res_geo<span class="sc">$</span>url[<span class="fu">tolower</span>(res_geo<span class="sc">$</span>format) <span class="sc">==</span> <span class="st">&quot;parquet&quot;</span>][<span class="dv">1</span>]</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Enregistrement de la table locale dans DuckDB et jointure distante sur le SIRET</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">duckdb_register</span>(con, <span class="st">&quot;etab_viti_34&quot;</span>, etab_viti_34)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>coords_lambert <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con, <span class="fu">sprintf</span>(<span class="st">&quot;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="st">  SELECT</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="st">    e.siret,</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="st">    g.x,</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="st">    g.y,</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="st">    g.qualite_xy AS qualite_geocodage</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="st">  FROM etab_viti_34 e</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="st">  LEFT JOIN read_parquet(&#39;%s&#39;) g</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="st">    ON e.siret = g.siret</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span>, url_geo))</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Fermeture propre de DuckDB</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="fu">dbDisconnect</span>(con, <span class="at">shutdown =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Conversion Lambert-93 (EPSG:2154) -&gt; GPS WGS84 (EPSG:4326)</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>coords_gps <span class="ot">&lt;-</span> coords_lambert <span class="sc">|&gt;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(x), <span class="sc">!</span><span class="fu">is.na</span>(y)) <span class="sc">|&gt;</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_as_sf</span>(<span class="at">coords =</span> <span class="fu">c</span>(<span class="st">&quot;x&quot;</span>, <span class="st">&quot;y&quot;</span>), <span class="at">crs =</span> <span class="dv">2154</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_transform</span>(<span class="at">crs =</span> <span class="dv">4326</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">longitude =</span> <span class="fu">st_coordinates</span>(geometry)[, <span class="dv">1</span>],</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">latitude  =</span> <span class="fu">st_coordinates</span>(geometry)[, <span class="dv">2</span>]</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_drop_geometry</span>()</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Rattachement des coordonnées à etab_viti_34</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>etab_viti_34 <span class="ot">&lt;-</span> etab_viti_34 <span class="sc">|&gt;</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(coords_gps, <span class="at">by =</span> <span class="st">&quot;siret&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="appariement-avec-les-bénéficiaires-des-aides-pac" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Appariement avec les bénéficiaires des aides PAC</h1>
 <p>On importe le fichier CSV national des bénéficiaires PAC, on le restreint immédiatement aux SIREN de l’Hérault, puis on agrège séparément les montants (lignes de synthèse) et la liste des aides perçues (lignes de détail).</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Import du fichier ASP (Telepac)</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>pac_brut <span class="ot">&lt;-</span> <span class="fu">read.csv2</span>(<span class="st">&quot;C:/Users/faust/Desktop/domaines_viticoles_herault/Liste des bénéficiaires PAC 2025 - 20260601.csv&quot;</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Normalisation du SIREN sur 9 caractères et filtrage sur notre périmètre Hérault</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pac_34 <span class="ot">&lt;-</span> pac_brut <span class="sc">|&gt;</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">siren =</span> <span class="fu">str_pad</span>(<span class="fu">as.character</span>(Numéro.de.SIREN), <span class="dv">9</span>, <span class="at">pad =</span> <span class="st">&quot;0&quot;</span>)</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(siren <span class="sc">%in%</span> etab_viti_34<span class="sc">$</span>siren)</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Récupération des montants totaux (lignes de synthèse où Fonds == &quot;&quot;)</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>pac_totaux <span class="ot">&lt;-</span> pac_34 <span class="sc">|&gt;</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Fonds <span class="sc">==</span> <span class="st">&quot;&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac =</span> <span class="fu">as.numeric</span>(Montant.total.financé.par.l.UE.et.cofinancé.pour.le.bénéfic),</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga     =</span> <span class="fu">as.numeric</span>(Montant.FEAGA.total.pour.le.bénéficiaire),</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader    =</span> <span class="fu">as.numeric</span>(Montant.FEADER.total.pour.le.bénéficiaire)</span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(siren) <span class="sc">|&gt;</span></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac =</span> <span class="fu">sum</span>(total_aides_pac, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga     =</span> <span class="fu">sum</span>(total_feaga, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader    =</span> <span class="fu">sum</span>(total_feader, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Récupération du détail des interventions (utile pour qualifier les prospects)</span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>pac_details <span class="ot">&lt;-</span> pac_34 <span class="sc">|&gt;</span></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Type.d.intervention.UE <span class="sc">!=</span> <span class="st">&quot;&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(siren) <span class="sc">|&gt;</span></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">nb_aides_pac =</span> <span class="fu">n</span>(),</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">liste_aides  =</span> <span class="fu">paste</span>(<span class="fu">unique</span>(Type.d.intervention.UE), <span class="at">collapse =</span> <span class="st">&quot; | &quot;</span>),</span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Jointure finale avec la base SIRENE</span></span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>base_viti_34_pac <span class="ot">&lt;-</span> etab_viti_34 <span class="sc">|&gt;</span></span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(pac_totaux, <span class="at">by =</span> <span class="st">&quot;siren&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(pac_details, <span class="at">by =</span> <span class="st">&quot;siren&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">beneficiaire_pac =</span> <span class="sc">!</span><span class="fu">is.na</span>(total_aides_pac) <span class="sc">&amp;</span> total_aides_pac <span class="sc">&gt;</span> <span class="dv">0</span>,</span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac  =</span> <span class="fu">replace_na</span>(total_aides_pac, <span class="dv">0</span>),</span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga      =</span> <span class="fu">replace_na</span>(total_feaga, <span class="dv">0</span>),</span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader     =</span> <span class="fu">replace_na</span>(total_feader, <span class="dv">0</span>),</span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">nb_aides_pac     =</span> <span class="fu">replace_na</span>(nb_aides_pac, <span class="dv">0</span>)</span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Import du fichier ASP (Telepac)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>pac_brut <span class="ot">&lt;-</span> <span class="fu">read.csv2</span>(<span class="st">&quot;C:/Users/faust/Desktop/domaines_viticoles_herault/Liste des bénéficiaires PAC 2025 - 20260601.csv&quot;</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Normalisation du SIREN sur 9 caractères et filtrage sur notre périmètre Hérault</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>pac_34 <span class="ot">&lt;-</span> pac_brut <span class="sc">|&gt;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">siren =</span> <span class="fu">str_pad</span>(<span class="fu">as.character</span>(Numéro.de.SIREN), <span class="dv">9</span>, <span class="at">pad =</span> <span class="st">&quot;0&quot;</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(siren <span class="sc">%in%</span> etab_viti_34<span class="sc">$</span>siren)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Récupération des montants totaux (lignes de synthèse où Fonds == &quot;&quot;)</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>pac_totaux <span class="ot">&lt;-</span> pac_34 <span class="sc">|&gt;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Fonds <span class="sc">==</span> <span class="st">&quot;&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac =</span> <span class="fu">as.numeric</span>(Montant.total.financé.par.l.UE.et.cofinancé.pour.le.bénéfic),</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga     =</span> <span class="fu">as.numeric</span>(Montant.FEAGA.total.pour.le.bénéficiaire),</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader    =</span> <span class="fu">as.numeric</span>(Montant.FEADER.total.pour.le.bénéficiaire)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(siren) <span class="sc">|&gt;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac =</span> <span class="fu">sum</span>(total_aides_pac, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga     =</span> <span class="fu">sum</span>(total_feaga, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader    =</span> <span class="fu">sum</span>(total_feader, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Récupération du détail des interventions (utile pour qualifier les prospects)</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>pac_details <span class="ot">&lt;-</span> pac_34 <span class="sc">|&gt;</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Type.d.intervention.UE <span class="sc">!=</span> <span class="st">&quot;&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(siren) <span class="sc">|&gt;</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">nb_aides_pac =</span> <span class="fu">n</span>(),</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">liste_aides  =</span> <span class="fu">paste</span>(<span class="fu">unique</span>(Type.d.intervention.UE), <span class="at">collapse =</span> <span class="st">&quot; | &quot;</span>),</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Jointure finale avec la base SIRENE géolocalisée</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>base_viti_34_pac <span class="ot">&lt;-</span> etab_viti_34 <span class="sc">|&gt;</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(pac_totaux, <span class="at">by =</span> <span class="st">&quot;siren&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(pac_details, <span class="at">by =</span> <span class="st">&quot;siren&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">beneficiaire_pac =</span> <span class="sc">!</span><span class="fu">is.na</span>(total_aides_pac) <span class="sc">&amp;</span> total_aides_pac <span class="sc">&gt;</span> <span class="dv">0</span>,</span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_aides_pac  =</span> <span class="fu">replace_na</span>(total_aides_pac, <span class="dv">0</span>),</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feaga      =</span> <span class="fu">replace_na</span>(total_feaga, <span class="dv">0</span>),</span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_feader     =</span> <span class="fu">replace_na</span>(total_feader, <span class="dv">0</span>),</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">nb_aides_pac     =</span> <span class="fu">replace_na</span>(nb_aides_pac, <span class="dv">0</span>)</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="mise-en-forme-finale-et-export-excel" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> Mise en forme finale et export Excel</h1>
-<p>Les colonnes sont renommées de manière explicite et en MAJUSCULES, les codes NAF sont traduits en clair, et les booléens sont convertis en Oui / Non pour faciliter le filtrage sous Excel.</p>
+<section id="mise-en-forme-finale-et-export-excel" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Mise en forme finale et export Excel</h1>
+<p>Les colonnes sont renommées de manière explicite et en MAJUSCULES, les codes NAF sont traduits en clair, les booléens sont convertis en Oui / Non pour faciliter le filtrage sous Excel, et un lien direct Google Maps (LIEN_GOOGLE_MAPS) est généré à partir des coordonnées GPS de chaque établissement.</p>
+<p>La base finale géolocalisée est sauvegardée à la fois au format .rds (pour alimenter le futur tableau de bord flexdashboard) et au format .xlsx (pour une utilisation immédiate sur Excel).</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>base_finale_excel <span class="ot">&lt;-</span> base_viti_34_pac <span class="sc">|&gt;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">ACTIVITE_PRINCIPALE =</span> <span class="fu">case_when</span>(</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;01.21Z&quot;</span> <span class="sc">~</span> <span class="st">&quot;Culture de la vigne&quot;</span>,</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;11.02A&quot;</span> <span class="sc">~</span> <span class="st">&quot;Fabrication de vins effervescents&quot;</span>,</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;11.02B&quot;</span> <span class="sc">~</span> <span class="st">&quot;Vinification&quot;</span>,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> naf</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    ),</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">EST_SIEGE_SOCIAL =</span> <span class="fu">if_else</span>(est_siege, <span class="st">&quot;Oui&quot;</span>, <span class="st">&quot;Non&quot;</span>, <span class="at">missing =</span> <span class="st">&quot;Non renseigné&quot;</span>),</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">BENEFICIAIRE_PAC =</span> <span class="fu">if_else</span>(beneficiaire_pac, <span class="st">&quot;Oui&quot;</span>, <span class="st">&quot;Non&quot;</span>)</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Identification</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIREN                  =</span> siren,</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIRET                  =</span> siret,</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    EST_SIEGE_SOCIAL,</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">NOM_ETABLISSEMENT      =</span> nom_principal,</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">ENSEIGNE               =</span> enseigne,</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">RAISON_SOCIALE         =</span> raison_sociale,</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIGLE                  =</span> sigle,</span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">EXPLOITANT_INDIVIDUEL  =</span> exploitant_individuel,</span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Activité et structure</span></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_NAF               =</span> naf,</span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    ACTIVITE_PRINCIPALE,</span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_FORME_JURIDIQUE   =</span> forme_juridique,</span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">CATEGORIE_ENTREPRISE   =</span> categorie_entreprise,</span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">TRANCHE_EFFECTIFS      =</span> tranche_effectifs,</span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">DATE_CREATION          =</span> date_creation,</span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Localisation</span></span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">COMPLEMENT_ADRESSE     =</span> complement_adresse,</span>
-<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">ADRESSE_VOIE           =</span> voie,</span>
-<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_POSTAL            =</span> code_postal,</span>
-<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">COMMUNE                =</span> commune,</span>
-<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_INSEE_COMMUNE     =</span> code_insee,</span>
-<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Aides PAC</span></span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>    BENEFICIAIRE_PAC,</span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_TOTAL_PAC_EUR  =</span> total_aides_pac,</span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_FEAGA_EUR      =</span> total_feaga,</span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_FEADER_EUR     =</span> total_feader,</span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_AIDES_PAC           =</span> nb_aides_pac,</span>
-<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">DETAIL_AIDES_PAC       =</span> liste_aides</span>
-<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(MONTANT_TOTAL_PAC_EUR), COMMUNE, NOM_ETABLISSEMENT)</span>
-<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="co"># Sauvegarde au format R (.rds) pour le futur dashboard Shiny</span></span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(base_finale_excel, <span class="st">&quot;base_viti_34_pac.rds&quot;</span>)</span>
-<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="co"># Export au format Excel (.xlsx) avec tableau structuré, filtres et largeurs automatiques</span></span>
-<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>wb <span class="ot">&lt;-</span> <span class="fu">createWorkbook</span>()</span>
-<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="fu">addWorksheet</span>(wb, <span class="st">&quot;Domaines_Viticoles_34&quot;</span>)</span>
-<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a><span class="fu">writeDataTable</span>(</span>
-<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>  wb,</span>
-<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>  <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>,</span>
-<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> base_finale_excel,</span>
-<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>  <span class="at">tableStyle =</span> <span class="st">&quot;TableStyleMedium2&quot;</span>,</span>
-<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>  <span class="at">withFilter =</span> <span class="cn">TRUE</span></span>
-<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="co"># Fige la première ligne (en-têtes) et ajuste la largeur des colonnes</span></span>
-<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a><span class="fu">freezePane</span>(wb, <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>, <span class="at">firstRow =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="fu">setColWidths</span>(wb, <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>, <span class="at">cols =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">ncol</span>(base_finale_excel), <span class="at">widths =</span> <span class="st">&quot;auto&quot;</span>)</span>
-<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="fu">saveWorkbook</span>(wb, <span class="st">&quot;base_viticole_herault_pac.xlsx&quot;</span>, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>base_finale_excel <span class="ot">&lt;-</span> base_viti_34_pac <span class="sc">|&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">ACTIVITE_PRINCIPALE =</span> <span class="fu">case_when</span>(</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;01.21Z&quot;</span> <span class="sc">~</span> <span class="st">&quot;Culture de la vigne&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;11.02A&quot;</span> <span class="sc">~</span> <span class="st">&quot;Fabrication de vins effervescents&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>      naf <span class="sc">==</span> <span class="st">&quot;11.02B&quot;</span> <span class="sc">~</span> <span class="st">&quot;Vinification&quot;</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> naf</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">EST_SIEGE_SOCIAL =</span> <span class="fu">if_else</span>(est_siege, <span class="st">&quot;Oui&quot;</span>, <span class="st">&quot;Non&quot;</span>, <span class="at">missing =</span> <span class="st">&quot;Non renseigné&quot;</span>),</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">BENEFICIAIRE_PAC =</span> <span class="fu">if_else</span>(beneficiaire_pac, <span class="st">&quot;Oui&quot;</span>, <span class="st">&quot;Non&quot;</span>),</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">LIEN_GOOGLE_MAPS =</span> <span class="fu">if_else</span>(</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>      <span class="sc">!</span><span class="fu">is.na</span>(latitude) <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(longitude),</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">paste0</span>(<span class="st">&quot;[https://www.google.com/maps/search/?api=1&amp;query=](https://www.google.com/maps/search/?api=1&amp;query=)&quot;</span>, latitude, <span class="st">&quot;,&quot;</span>, longitude),</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>      <span class="cn">NA_character_</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Identification</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIREN                  =</span> siren,</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIRET                  =</span> siret,</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    EST_SIEGE_SOCIAL,</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">NOM_ETABLISSEMENT      =</span> nom_principal,</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">ENSEIGNE               =</span> enseigne,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">RAISON_SOCIALE         =</span> raison_sociale,</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">SIGLE                  =</span> sigle,</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">EXPLOITANT_INDIVIDUEL  =</span> exploitant_individuel,</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Activité et structure</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_NAF               =</span> naf,</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    ACTIVITE_PRINCIPALE,</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_FORME_JURIDIQUE   =</span> forme_juridique,</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">CATEGORIE_ENTREPRISE   =</span> categorie_entreprise,</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">TRANCHE_EFFECTIFS      =</span> tranche_effectifs,</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">DATE_CREATION          =</span> date_creation,</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Localisation et GPS</span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">COMPLEMENT_ADRESSE     =</span> complement_adresse,</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">ADRESSE_VOIE           =</span> voie,</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_POSTAL            =</span> code_postal,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">COMMUNE                =</span> commune,</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">CODE_INSEE_COMMUNE     =</span> code_insee,</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">LATITUDE               =</span> latitude,</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">LONGITUDE              =</span> longitude,</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">QUALITE_GEOCODAGE      =</span> qualite_geocodage,</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>    LIEN_GOOGLE_MAPS,</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Aides PAC</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>    BENEFICIAIRE_PAC,</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_TOTAL_PAC_EUR  =</span> total_aides_pac,</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_FEAGA_EUR      =</span> total_feaga,</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">MONTANT_FEADER_EUR     =</span> total_feader,</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_AIDES_PAC           =</span> nb_aides_pac,</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">DETAIL_AIDES_PAC       =</span> liste_aides</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(MONTANT_TOTAL_PAC_EUR), COMMUNE, NOM_ETABLISSEMENT)</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a><span class="co"># Sauvegarde au format R (.rds) pour le futur dashboard flexdashboard</span></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(base_finale_excel, <span class="st">&quot;base_viti_34_pac.rds&quot;</span>)</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a><span class="co"># Export au format Excel (.xlsx) avec tableau structuré, filtres et largeurs automatiques</span></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>wb <span class="ot">&lt;-</span> <span class="fu">createWorkbook</span>()</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a><span class="fu">addWorksheet</span>(wb, <span class="st">&quot;Domaines_Viticoles_34&quot;</span>)</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a><span class="fu">writeDataTable</span>(</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>  wb,</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>  <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>,</span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> base_finale_excel,</span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>  <span class="at">tableStyle =</span> <span class="st">&quot;TableStyleMedium2&quot;</span>,</span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>  <span class="at">withFilter =</span> <span class="cn">TRUE</span></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a><span class="co"># Fige la première ligne (en-têtes) et ajuste la largeur des colonnes</span></span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a><span class="fu">freezePane</span>(wb, <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>, <span class="at">firstRow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a><span class="fu">setColWidths</span>(wb, <span class="at">sheet =</span> <span class="st">&quot;Domaines_Viticoles_34&quot;</span>, <span class="at">cols =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">ncol</span>(base_finale_excel), <span class="at">widths =</span> <span class="st">&quot;auto&quot;</span>)</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a><span class="fu">saveWorkbook</span>(wb, <span class="st">&quot;base_viticole_herault_pac.xlsx&quot;</span>, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="contrôle-qualité-de-la-base-finale" class="level1" data-number="6">
-<h1 data-number="6"><span class="header-section-number">6</span> Contrôle qualité de la base finale</h1>
+<section id="contrôle-qualité-de-la-base-finale" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Contrôle qualité de la base finale</h1>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>bilan <span class="ot">&lt;-</span> base_finale_excel <span class="sc">|&gt;</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ETABLISSEMENTS       =</span> <span class="fu">n</span>(),</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ENTREPRISES_SIREN    =</span> <span class="fu">n_distinct</span>(SIREN),</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ETAB_AVEC_PAC        =</span> <span class="fu">sum</span>(BENEFICIAIRE_PAC <span class="sc">==</span> <span class="st">&quot;Oui&quot;</span>),</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">TAUX_APPARIEMENT_PCT    =</span> <span class="fu">round</span>(<span class="fu">mean</span>(BENEFICIAIRE_PAC <span class="sc">==</span> <span class="st">&quot;Oui&quot;</span>) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>)</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Enveloppe PAC calculée sans double compte (1 montant par SIREN unique)</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>enveloppe_pac <span class="ot">&lt;-</span> base_finale_excel <span class="sc">|&gt;</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(SIREN, MONTANT_TOTAL_PAC_EUR) <span class="sc">|&gt;</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">ENVELOPPE_PAC_UNIQUE_EUR =</span> <span class="fu">sum</span>(MONTANT_TOTAL_PAC_EUR, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_cols</span>(bilan, enveloppe_pac)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>bilan <span class="ot">&lt;-</span> base_finale_excel <span class="sc">|&gt;</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ETABLISSEMENTS       =</span> <span class="fu">n</span>(),</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ENTREPRISES_SIREN    =</span> <span class="fu">n_distinct</span>(SIREN),</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ETAB_GEOLOCALISES    =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(LATITUDE)),</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">TAUX_GEOCODAGE_PCT      =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(LATITUDE)) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>),</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">NB_ETAB_AVEC_PAC        =</span> <span class="fu">sum</span>(BENEFICIAIRE_PAC <span class="sc">==</span> <span class="st">&quot;Oui&quot;</span>),</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">TAUX_APPARIEMENT_PCT    =</span> <span class="fu">round</span>(<span class="fu">mean</span>(BENEFICIAIRE_PAC <span class="sc">==</span> <span class="st">&quot;Oui&quot;</span>) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Enveloppe PAC calculée sans double compte (1 montant par SIREN unique)</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>enveloppe_pac <span class="ot">&lt;-</span> base_finale_excel <span class="sc">|&gt;</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(SIREN, MONTANT_TOTAL_PAC_EUR) <span class="sc">|&gt;</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">ENVELOPPE_PAC_UNIQUE_EUR =</span> <span class="fu">sum</span>(MONTANT_TOTAL_PAC_EUR, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_cols</span>(bilan, enveloppe_pac)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  NB_ETABLISSEMENTS NB_ENTREPRISES_SIREN NB_ETAB_AVEC_PAC TAUX_APPARIEMENT_PCT
-1             15211                15055             2774                 18.2
+<pre><code>  NB_ETABLISSEMENTS NB_ENTREPRISES_SIREN NB_ETAB_GEOLOCALISES
+1             15211                15055                14804
+  TAUX_GEOCODAGE_PCT NB_ETAB_AVEC_PAC TAUX_APPARIEMENT_PCT
+1               97.3             2774                 18.2
   ENVELOPPE_PAC_UNIQUE_EUR
 1                 49795994</code></pre>
 </div>
